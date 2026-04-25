@@ -9,7 +9,7 @@ from habits.services import send_telegram_message
 @shared_task
 def check_habits_and_notify():
     now = datetime.now()
-    habits = Habit.objects.all()
+    habits = Habit.objects.filter(owner__chat_id__isnull=False)
     for habit in habits:
         habit_datetime = datetime.combine(now.date(), habit.time)
         time_left = habit_datetime - now  # сколько осталось до выполнения

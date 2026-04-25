@@ -4,6 +4,9 @@ from rest_framework.test import APITestCase
 from habits.models import Habit
 from users.models import User
 
+from habits.tasks import check_habits_and_notify
+from freezegun import freeze_time
+from unittest.mock import patch
 
 class HabitTest(APITestCase):
     """
@@ -120,7 +123,7 @@ class HabitTest(APITestCase):
             "previous": None,
             "results": [
                 {
-                    "id": 5,
+                    "id": self.habit.id,
                     "time_to_complete": "00:02:00",
                     "period": 1,
                     "action": "test полезная привычка",
@@ -130,10 +133,43 @@ class HabitTest(APITestCase):
                     "reward": "test вознаграждение",
                     "is_published": True,
                     "related_habit": None,
-                    "owner": 4,
+                    "owner": self.user.pk,
                 }
             ],
         }
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json(), result)
+
+    @patch('habits.tasks.send_telegram_message')
+    def test_check_habits_and_notify_sends_message(self, mock_send):
+        """Отправляет сообщение, если до привычки осталось 2 минуты"""
+        with freeze_time("2026-04-26 12:00:00"):
+            user = User.objects.create(email="telegram_user@test.ru", chat_id=123456789)
+            habit = Habit.objects.create(
+                action="Пробежка",
+                place="Парк",
+                time="12:02",
+                owner=user,
+                reward="Отдых"
+            )
+            check_habits_and_notify()
+            mock_send.assert_called_once()
+            args, _ = mock_send.call_args
+            self.assertIn("Пробежка", args[0])
+            self.assertEqual(args[1], str(user.chat_id))
+
+    @patch('habits.tasks.send_telegram_message')
+    def test_check_habits_and_notify_no_send(self, mock_send):
+        """Не отправляет, если до привычки больше 5 минут"""
+        with freeze_time("2026-04-26 12:00:00"):
+            user = User.objects.create(email="telegram_user2@test.ru", chat_id=987654321)
+            habit = Habit.objects.create(
+                action="Чтение",
+                place="Дом",
+                time="12:10",
+                owner=user,
+                reward="Кофе"
+            )
+            check_habits_and_notify()
+            mock_send.assert_not_called()

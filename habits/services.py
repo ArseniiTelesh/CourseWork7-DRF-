@@ -13,3 +13,5 @@ def send_telegram_message(message, chat_id):
     requests.get(
         f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage", params=params
     )
+
+    response.raise_for_status()
