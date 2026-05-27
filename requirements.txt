@@ -5,7 +5,6 @@ django-filter
 django-cors-headers
 drf_yasg
 
-psycopg2
 psycopg2-binary
 
 python-dotenv
